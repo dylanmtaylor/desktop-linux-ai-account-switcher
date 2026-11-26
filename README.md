@@ -2,7 +2,10 @@
 
 Switch between multiple **Claude Code** and **Codex CLI** accounts, and between **Claude Desktop** profiles, from your Linux desktop panel. See each account's email, usage, and when its limits reset. If you use **Antigravity (`agy`)**, your Gemini subscription usage shows up too.
 
-<p align="center"><img src="docs/screenshots/kde-plasma-tray.png" alt="AI Account Switcher in the KDE Plasma system tray" width="440"></p>
+<p align="center">
+  <img src="docs/screenshots/gnome-shell-panel.png" alt="AI Account Switcher in the GNOME Shell top bar" width="380">
+  <img src="docs/screenshots/kde-plasma-tray.png" alt="AI Account Switcher in the KDE Plasma system tray" width="440">
+</p>
 
 It ships as:
 
