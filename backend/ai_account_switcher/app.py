@@ -65,6 +65,11 @@ def _provider(config: Config, provider_id: str) -> Provider:
 # --------------------------------------------------------------------------- status
 
 
+def _is_weekly_window(window: dict) -> bool:
+    label = str(window.get("label") or "").strip().lower()
+    return bool(label) and label.rsplit(" ", 1)[-1] in ("7d", "weekly")
+
+
 def _panel_entry(name: str, rendered: dict | None, show_reset: bool = True) -> str | None:
     if not rendered or rendered.get("max_percent") is None:
         return None
@@ -74,19 +79,30 @@ def _panel_entry(name: str, rendered: dict | None, show_reset: bool = True) -> s
     star = "*" if reset_available else ""
     reset = ""
     if show_reset:
-        peak_with_reset = [
-            w for w in windows
-            if isinstance(w.get("percent"), (int, float))
-            and w["percent"] >= round(peak, 1)
-            and w.get("resets_in")
-        ]
-        candidates = peak_with_reset or [w for w in windows if w.get("resets_in")]
-        if candidates:
+        weekly_with_reset = [w for w in windows if _is_weekly_window(w) and w.get("resets_in")]
+        if weekly_with_reset:
             chosen = min(
-                candidates,
-                key=lambda w: w["resets_at"] if isinstance(w.get("resets_at"), (int, float)) else float("inf"),
+                weekly_with_reset,
+                key=lambda w: (
+                    -(w["percent"] if isinstance(w.get("percent"), (int, float)) else -1.0),
+                    w["resets_at"] if isinstance(w.get("resets_at"), (int, float)) else float("inf"),
+                ),
             )
             reset = f" [{chosen['resets_in']}]"
+        else:
+            peak_with_reset = [
+                w for w in windows
+                if isinstance(w.get("percent"), (int, float))
+                and w["percent"] >= round(peak, 1)
+                and w.get("resets_in")
+            ]
+            candidates = peak_with_reset or [w for w in windows if w.get("resets_in")]
+            if candidates:
+                chosen = min(
+                    candidates,
+                    key=lambda w: w["resets_at"] if isinstance(w.get("resets_at"), (int, float)) else float("inf"),
+                )
+                reset = f" [{chosen['resets_in']}]"
     return f"{name} {peak:.0f}%{star}{reset}"
 
 

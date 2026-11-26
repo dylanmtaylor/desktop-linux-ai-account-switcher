@@ -398,6 +398,21 @@ class ConfigTests(Sandbox):
         self.assertEqual(app._panel_entry("Claude", with_resets, show_reset=True), "Claude 42% [2d 3h]")
         self.assertEqual(app._panel_entry("Claude", with_resets, show_reset=False), "Claude 42%")
 
+        # Even when 5h is higher than 7d, the panel shows the weekly reset time.
+        five_hour_peak = usage.render(usage.ok([
+            usage.window("5h", 85, now + 2 * 3600),
+            usage.window("7d", 20, now + 5 * 86400),
+        ]), now)
+        self.assertEqual(app._panel_entry("Claude", five_hour_peak, show_reset=True), "Claude 85% [5d 0h]")
+
+        gemini_multi_group = usage.render(usage.ok([
+            usage.window("Gemini 5h", 90, now + 3 * 3600),
+            usage.window("Gemini 7d", 25, now + 4 * 86400),
+            usage.window("Claude/GPT 5h", 10, now + 3600),
+            usage.window("Claude/GPT 7d", 60, now + 6 * 86400),
+        ]), now)
+        self.assertEqual(app._panel_entry("Gemini", gemini_multi_group, show_reset=True), "Gemini 90% [6d 0h]")
+
         no_resets = usage.render(usage.ok([usage.window("7d", 15, None)]), now)
         self.assertEqual(app._panel_entry("Codex", no_resets, show_reset=True), "Codex 15%")
 
