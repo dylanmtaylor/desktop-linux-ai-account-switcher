@@ -13,7 +13,7 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 
-from ai_account_switcher import app, usage  # noqa: E402
+from ai_account_switcher import app, claude_desktop, usage  # noqa: E402
 from ai_account_switcher.config import Account, Config  # noqa: E402
 from ai_account_switcher.providers import ClaudeCode, Codex, parse_claude_usage, parse_codex_usage  # noqa: E402
 from ai_account_switcher.secrets import FileStore, open_store  # noqa: E402
@@ -267,6 +267,100 @@ class AutoSwitchTests(Sandbox):
         # Cooldown: an immediate second refresh does not flip-flop.
         out = app.refresh()
         self.assertNotIn("auto_switched", [e["type"] for e in out["events"]])
+
+
+class ClaudeDesktopTests(Sandbox):
+    """Uses a fake ``claude-desktop`` (a sleeping Python script). The /proc scan is
+    limited to processes this test started, so a real Claude Desktop is never touched."""
+
+    def setUp(self):
+        super().setUp()
+        import subprocess
+        self.subprocess = subprocess
+        bindir = self.home / "fakebin" / "claude-desktop"
+        bindir.mkdir(parents=True)
+        self.fake = bindir / "claude-desktop"
+        self.fake.write_text(f"#!{sys.executable}\nimport time\ntime.sleep(60)\n")
+        self.fake.chmod(0o755)
+        self.children = []
+        real_popen = subprocess.Popen
+
+        def tracking_popen(*args, **kwargs):
+            proc = real_popen(*args, **kwargs)
+            self.children.append(proc)
+            return proc
+
+        for target, value in (
+            ("ai_account_switcher.claude_desktop.subprocess.Popen", tracking_popen),
+            ("ai_account_switcher.claude_desktop._candidate_pids", lambda: [c.pid for c in self.children if c.poll() is None]),
+            ("ai_account_switcher.claude_desktop.find_program", lambda name, override="": str(self.fake) if name == "claude-desktop" else None),
+        ):
+            patcher = mock.patch(target, value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        self.addCleanup(self._reap)
+
+    def _reap(self):
+        for child in self.children:
+            if child.poll() is None:
+                child.kill()
+            child.wait()
+
+    def wait_running(self, name):
+        for _ in range(50):
+            if name in claude_desktop.running():
+                return True
+            time.sleep(0.05)
+        return False
+
+    def provider(self):
+        return next(p for p in app.status()["providers"] if p["id"] == "desktop")
+
+    def test_add_switch_remove_profiles(self):
+        (self.home / ".config/Claude").mkdir(parents=True)  # existing default profile
+        app.add("desktop", "work")
+        self.assertTrue(self.wait_running("work"))
+        self.assertEqual((self.home / ".config/Claude-accounts/.current").read_text().strip(), "work")
+        desk = self.provider()
+        self.assertEqual([a["id"] for a in desk["accounts"]], ["default", "work"])
+        self.assertEqual(desk["active"], "work")
+        self.assertFalse(next(a for a in desk["accounts"] if a["id"] == "work")["removable"])
+
+        app.switch("desktop", "default")
+        self.assertTrue(self.wait_running("default"))
+        self.assertNotIn("work", claude_desktop.running(), "the old profile's instance must be stopped")
+
+        with mock.patch("ai_account_switcher.claude_desktop.run") as fake_run:
+            def trash(argv, timeout):
+                import shutil
+                shutil.rmtree(argv[-1] if argv[1] == "trash" else argv[2])
+                return self.subprocess.CompletedProcess(argv, 0, "", "")
+            fake_run.side_effect = trash
+            with mock.patch("ai_account_switcher.claude_desktop.find_program", lambda n, o="": "/usr/bin/" + n):
+                app.remove("desktop", "work")
+        self.assertEqual([a["id"] for a in self.provider()["accounts"]], ["default"])
+
+    def test_cannot_remove_default_or_open_profile(self):
+        (self.home / ".config/Claude").mkdir(parents=True)
+        with self.assertRaises(SwitcherError):
+            app.remove("desktop", "default")
+        app.add("desktop", "work")
+        self.assertTrue(self.wait_running("work"))
+        with self.assertRaises(SwitcherError):
+            app.remove("desktop", "work")
+
+    def test_bad_names_rejected(self):
+        for bad in ("", "../x", ".hidden", "a b", "default"):
+            with self.assertRaises(SwitcherError):
+                app.add("desktop", bad)
+
+    def test_existing_profiles_from_other_tool_are_listed(self):
+        root = self.home / ".config/Claude-accounts"
+        (root / "personal").mkdir(parents=True)
+        (root / ".current").write_text("personal\n")
+        desk = self.provider()
+        self.assertEqual(desk["active"], "personal")
+        self.assertEqual(desk["accounts"][0]["usage"]["text"], "Not open")
 
 
 class ConfigTests(Sandbox):

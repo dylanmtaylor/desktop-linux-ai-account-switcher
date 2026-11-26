@@ -39,6 +39,7 @@ class Settings:
     claude_config_dir: str = ""
     claude_command: str = ""
     codex_command: str = ""
+    desktop_command: str = ""
     terminal: str = ""
     show_usage_in_panel: bool = True
     refresh_minutes: int = 5
@@ -80,6 +81,7 @@ SETTABLE = {
     "claude_config_dir": str,
     "claude_command": str,
     "codex_command": str,
+    "desktop_command": str,
     "terminal": str,
     "show_usage_in_panel": _parse_bool,
     "refresh_minutes": _parse_minutes,

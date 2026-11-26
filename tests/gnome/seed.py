@@ -15,6 +15,11 @@ cli = ["ai-account-switcher"]
 os.environ["PATH"] = f"{H}/.local/bin:" + os.environ["PATH"]
 if not os.path.exists(f"{H}/.config/ai-account-switcher/accounts.json"):
     subprocess.run(cli + ["set", "secret_backend", "file"], capture_output=True)
+    # Claude Desktop: the default profile plus two named ones; /bin/true stands in for the app.
+    subprocess.run(cli + ["set", "desktop_command", "/bin/true"], capture_output=True)
+    for d in (".config/Claude", ".config/Claude-accounts/work", ".config/Claude-accounts/personal"):
+        os.makedirs(f"{H}/{d}", exist_ok=True)
+    open(f"{H}/.config/Claude-accounts/.current", "w").write("work\n")
     claude("work@example.com", "u1"); subprocess.run(cli + ["refresh"], capture_output=True)
     claude("personal@example.com", "u2"); subprocess.run(cli + ["refresh"], capture_output=True)
     codex("me@example.com"); subprocess.run(cli + ["refresh"], capture_output=True)

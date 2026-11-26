@@ -9,7 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from dataclasses import asdict
 
-from ai_account_switcher import __version__, gemini, usage
+from ai_account_switcher import __version__, claude_desktop, gemini, usage
 from ai_account_switcher.config import PROVIDERS, SETTABLE, Account, Config
 from ai_account_switcher.desktop import notify
 from ai_account_switcher.providers import Provider, all_providers
@@ -101,6 +101,9 @@ def status(config: Config | None = None) -> dict:
             "pending": pending,
             "accounts": accounts,
         })
+    desk = claude_desktop.status_entry(config.settings)
+    if desk:
+        providers_out.append(desk)
     gem = gemini.status_entry(state)
     if gem:
         providers_out.append(gem)
@@ -260,6 +263,13 @@ def refresh(auto_switch: bool = True) -> dict:
 
 
 def switch(provider_id: str, account_id: str) -> dict:
+    if provider_id == claude_desktop.PROVIDER:
+        config = Config()
+        result = claude_desktop.switch(config.settings, account_id)
+        out = status(config)
+        out["events"] = [{"type": "switched", "provider": provider_id, "account": account_id,
+                          "message": f"Opening Claude Desktop with the {account_id} profile."}] if result["changed"] else []
+        return out
     config = Config()
     provider = _provider(config, provider_id)
     store = open_store(config)
@@ -277,7 +287,17 @@ def switch(provider_id: str, account_id: str) -> dict:
     return out
 
 
-def add(provider_id: str) -> dict:
+def add(provider_id: str, name: str | None = None) -> dict:
+    if provider_id == claude_desktop.PROVIDER:
+        if not name:
+            raise SwitcherError("Give the new Claude Desktop profile a name (--name).")
+        config = Config()
+        result = claude_desktop.add(config.settings, name)
+        out = status(config)
+        verb = "Created" if result.get("created") else "Opened"
+        out["events"] = [{"type": "added", "provider": provider_id, "account": name,
+                          "message": f"{verb} Claude Desktop profile {name}. Sign in in the window that opens."}]
+        return out
     config = Config()
     provider = _provider(config, provider_id)
     store = open_store(config)
@@ -303,6 +323,12 @@ def add(provider_id: str) -> dict:
 
 
 def remove(provider_id: str, account_id: str) -> dict:
+    if provider_id == claude_desktop.PROVIDER:
+        claude_desktop.remove(account_id)
+        out = status()
+        out["events"] = [{"type": "removed", "provider": provider_id, "account": account_id,
+                          "message": f"Moved Claude Desktop profile {account_id} to the trash."}]
+        return out
     config = Config()
     provider = _provider(config, provider_id)
     if not config.find(provider_id, account_id):

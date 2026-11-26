@@ -10,6 +10,8 @@ from ai_account_switcher import APP_NAME, __version__, app
 from ai_account_switcher.config import PROVIDERS, SETTABLE
 from ai_account_switcher.util import SwitcherError
 
+ACCOUNT_PROVIDERS = (*PROVIDERS, "desktop")
+
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -25,20 +27,23 @@ def _parser() -> argparse.ArgumentParser:
     p = sub.add_parser("refresh", help="save current logins, fetch usage, auto-switch if enabled")
     p.add_argument("--no-auto-switch", action="store_true")
 
-    p = sub.add_parser("switch", help="make a saved account active")
-    p.add_argument("provider", choices=PROVIDERS)
+    p = sub.add_parser("switch", help="make a saved account active (desktop: open that profile)")
+    p.add_argument("provider", choices=ACCOUNT_PROVIDERS)
     p.add_argument("account", help="account email")
 
-    p = sub.add_parser("add", help="sign in to another account in a terminal window")
-    p.add_argument("provider", choices=PROVIDERS)
+    p = sub.add_parser("add", help="sign in to another account (desktop: create a profile)")
+    p.add_argument("provider", choices=ACCOUNT_PROVIDERS)
+    p.add_argument("--name", help="profile name (required for desktop)")
 
-    p = sub.add_parser("remove", help="forget a saved (inactive) account")
-    p.add_argument("provider", choices=PROVIDERS)
+    p = sub.add_parser("remove", help="forget a saved (inactive) account (desktop: trash the profile)")
+    p.add_argument("provider", choices=ACCOUNT_PROVIDERS)
     p.add_argument("account", help="account email")
 
     p = sub.add_parser("auto-switch", help="switch automatically when the active account hits its limit")
     p.add_argument("provider", choices=PROVIDERS)
     p.add_argument("state", choices=("on", "off"))
+
+    sub.add_parser("open", help="show the panel menu (GNOME) or the widget window (KDE); used by the app launcher")
 
     p = sub.add_parser("set", help="change a setting")
     p.add_argument("key", choices=sorted(SETTABLE))
@@ -71,14 +76,19 @@ def _print_human(result: dict) -> None:
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
-        if args.command == "status":
+        if args.command == "open":
+            from ai_account_switcher.desktop import open_ui
+            status = app.status()
+            lines = [line for line in status["panel"]["tooltip"].splitlines()]
+            result = {**status, "opened": open_ui("\n".join(lines))}
+        elif args.command == "status":
             result = app.status()
         elif args.command == "refresh":
             result = app.refresh(auto_switch=not args.no_auto_switch)
         elif args.command == "switch":
             result = app.switch(args.provider, args.account)
         elif args.command == "add":
-            result = app.add(args.provider)
+            result = app.add(args.provider, args.name)
         elif args.command == "remove":
             result = app.remove(args.provider, args.account)
         elif args.command == "auto-switch":
