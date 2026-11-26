@@ -1,0 +1,8 @@
+{
+  "uuid": "ai-account-switcher@dylanmtaylor.github.io",
+  "name": "AI Account Switcher",
+  "description": "Switch between Claude Code and Codex CLI accounts from the top bar. Shows each account's email, current usage and when its limits reset, and can switch automatically when an account runs out. Requires the ai-account-switcher backend (see the project page).",
+  "shell-version": ["45", "46", "47", "48", "49", "50", "51"],
+  "url": "https://github.com/dylanmtaylor/desktop-linux-ai-account-switcher",
+  "version-name": "0.1.0"
+}
