@@ -22,16 +22,7 @@ Gio._promisify(Gio.Subprocess.prototype, 'communicate_utf8_async');
 const BACKEND = 'ai-account-switcher';
 const BAR_WIDTH = 240;
 const DOT = PopupMenu.Ornament.DOT;
-const NO_DOT = PopupMenu.Ornament.NO_DOT ?? PopupMenu.Ornament.NONE;
-
-function verticalBox(params = {}) {
-    const box = new St.BoxLayout(params);
-    if ('orientation' in box)
-        box.orientation = Clutter.Orientation.VERTICAL;
-    else
-        box.vertical = true;
-    return box;
-}
+const NO_DOT = PopupMenu.Ornament.NO_DOT;
 
 function findBackend() {
     const local = GLib.build_filenamev([GLib.get_home_dir(), '.local', 'bin', BACKEND]);
@@ -369,7 +360,11 @@ class Indicator extends PanelMenu.Button {
         const row = new PopupMenu.PopupBaseMenuItem({reactive: false, can_focus: false});
         row.add_style_class_name('aias-usage-row');
         row.setOrnament(NO_DOT);
-        const box = verticalBox({style_class: 'aias-usage-box', x_expand: true});
+        const box = new St.BoxLayout({
+            style_class: 'aias-usage-box',
+            orientation: Clutter.Orientation.VERTICAL,
+            x_expand: true,
+        });
         if (!usage) {
             box.add_child(new St.Label({text: 'Usage not checked yet', style_class: 'aias-usage-dim'}));
         } else if (!usage.available) {

@@ -4,7 +4,7 @@ Switch between multiple **Claude Code** and **Codex CLI** accounts from your Lin
 
 It ships as:
 
-- a **GNOME Shell extension** (GNOME 45 and later)
+- a **GNOME Shell extension** (GNOME 50 and later)
 - a **KDE Plasma 6 panel widget**
 - an **`ai-account-switcher` CLI**, which both panel apps use and which also works on its own
 
