@@ -1,0 +1,2 @@
+FROM registry.fedoraproject.org/fedora:latest
+RUN dnf -y install --setopt=install_weak_deps=False gnome-shell adwaita-icon-theme dbus-daemon python3 glib2 libsecret procps-ng && dnf clean all

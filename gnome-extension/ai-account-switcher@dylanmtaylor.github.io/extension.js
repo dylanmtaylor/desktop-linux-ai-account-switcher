@@ -359,7 +359,7 @@ class Indicator extends PanelMenu.Button {
         const usage = account.usage;
         const row = new PopupMenu.PopupBaseMenuItem({reactive: false, can_focus: false});
         row.add_style_class_name('aias-usage-row');
-        row.setOrnament(NO_DOT);
+        row.setOrnament(PopupMenu.Ornament.NONE); // keep the indent, no radio ring
         const box = new St.BoxLayout({
             style_class: 'aias-usage-box',
             orientation: Clutter.Orientation.VERTICAL,
