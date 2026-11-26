@@ -389,6 +389,34 @@ class ConfigTests(Sandbox):
             self.assertEqual(open_store(Config()).name, "file")
         self.assertEqual(Config().settings.secret_backend, "file")
 
+    def test_panel_status_shows_resets_in_brackets_when_available(self):
+        now = 1_700_000_000.0
+        with_resets = usage.render(usage.ok([
+            usage.window("5h", 10, now + 3600 + 600),
+            usage.window("7d", 42, now + 2 * 86400 + 3 * 3600),
+        ]), now)
+        self.assertEqual(app._panel_entry("Claude", with_resets, show_reset=True), "Claude 42% [2d 3h]")
+        self.assertEqual(app._panel_entry("Claude", with_resets, show_reset=False), "Claude 42%")
+
+        no_resets = usage.render(usage.ok([usage.window("7d", 15, None)]), now)
+        self.assertEqual(app._panel_entry("Codex", no_resets, show_reset=True), "Codex 15%")
+
+        fallback_reset = usage.render(usage.ok([
+            usage.window("5h", 10, now + 1800),
+            usage.window("7d", 50, None),
+        ]), now)
+        self.assertEqual(app._panel_entry("Gemini", fallback_reset, show_reset=True), "Gemini 50% [30m]")
+
+        reset_available = usage.render(usage.ok([
+            usage.window("5h", 10, now - 10),
+            usage.window("7d", 42, now + 86400),
+        ]), now)
+        self.assertEqual(app._panel_entry("Claude", reset_available, show_reset=True), "Claude 42%* [1d 0h]")
+        self.assertEqual(app._panel_entry("Claude", reset_available, show_reset=False), "Claude 42%*")
+
+        app.set_setting("show_reset_in_panel", "off")
+        self.assertFalse(Config().settings.show_reset_in_panel)
+
 
 if __name__ == "__main__":
     unittest.main()

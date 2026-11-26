@@ -327,6 +327,12 @@ class Indicator extends PanelMenu.Button {
         showUsage.connect('toggled', (_item, state) =>
             this._call(['set', 'show_usage_in_panel', state ? 'on' : 'off']));
         options.menu.addMenuItem(showUsage);
+        const showReset = new PopupMenu.PopupSwitchMenuItem(
+            'Show reset time in the top bar', status.settings.show_reset_in_panel ?? true
+        );
+        showReset.connect('toggled', (_item, state) =>
+            this._call(['set', 'show_reset_in_panel', state ? 'on' : 'off']));
+        options.menu.addMenuItem(showReset);
         this.menu.addMenuItem(options);
     }
 

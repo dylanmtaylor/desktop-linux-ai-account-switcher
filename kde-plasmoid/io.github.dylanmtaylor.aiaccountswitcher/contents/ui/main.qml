@@ -244,6 +244,13 @@ PlasmoidItem {
                         checked: root.status ? root.status.settings.show_usage_in_panel : true
                         onToggled: root.call(["set", "show_usage_in_panel", checked ? "on" : "off"])
                     }
+                    PlasmaComponents.CheckBox {
+                        text: "Show reset time"
+                        visible: root.status ? root.status.settings.show_usage_in_panel : true
+                        checked: root.status && root.status.settings.show_reset_in_panel !== undefined
+                            ? root.status.settings.show_reset_in_panel : true
+                        onToggled: root.call(["set", "show_reset_in_panel", checked ? "on" : "off"])
+                    }
                     Item { Layout.fillWidth: true }
                     PlasmaComponents.Label {
                         opacity: 0.6

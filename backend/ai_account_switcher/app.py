@@ -65,6 +65,31 @@ def _provider(config: Config, provider_id: str) -> Provider:
 # --------------------------------------------------------------------------- status
 
 
+def _panel_entry(name: str, rendered: dict | None, show_reset: bool = True) -> str | None:
+    if not rendered or rendered.get("max_percent") is None:
+        return None
+    windows = [w for w in rendered.get("windows", []) if isinstance(w, dict)]
+    peak = rendered["max_percent"]
+    reset_available = any(w.get("resets_in") == "now" for w in windows)
+    star = "*" if reset_available else ""
+    reset = ""
+    if show_reset:
+        peak_with_reset = [
+            w for w in windows
+            if isinstance(w.get("percent"), (int, float))
+            and w["percent"] >= round(peak, 1)
+            and w.get("resets_in")
+        ]
+        candidates = peak_with_reset or [w for w in windows if w.get("resets_in")]
+        if candidates:
+            chosen = min(
+                candidates,
+                key=lambda w: w["resets_at"] if isinstance(w.get("resets_at"), (int, float)) else float("inf"),
+            )
+            reset = f" [{chosen['resets_in']}]"
+    return f"{name} {peak:.0f}%{star}{reset}"
+
+
 def status(config: Config | None = None) -> dict:
     """Everything the front ends draw. Cheap: reads files only (no keyring, no network)."""
     config = config or Config()
@@ -84,9 +109,10 @@ def status(config: Config | None = None) -> dict:
                 "id": account.id, "email": account.id, "plan": account.plan, "org": account.org,
                 "active": is_active, "has_credentials": account.has_credentials, "usage": rendered,
             })
-            if is_active and rendered and rendered.get("max_percent") is not None:
-                panel_parts.append(f"{provider.label.split()[0]} {rendered['max_percent']:.0f}%")
             if is_active:
+                entry = _panel_entry(provider.label.split()[0], rendered, config.settings.show_reset_in_panel)
+                if entry:
+                    panel_parts.append(entry)
                 tooltip.append(f"{provider.label}: {account.id}"
                                + (f" ({rendered['text']})" if rendered else ""))
         providers_out.append({
@@ -109,8 +135,9 @@ def status(config: Config | None = None) -> dict:
         providers_out.append(gem)
         for account in gem["accounts"]:
             rendered = account.get("usage")
-            if rendered and rendered.get("max_percent") is not None:
-                panel_parts.append(f"Gemini {rendered['max_percent']:.0f}%")
+            entry = _panel_entry("Gemini", rendered, config.settings.show_reset_in_panel)
+            if entry:
+                panel_parts.append(entry)
             tooltip.append(f"{gem['label']}: {account['email']}" + (f" ({rendered['text']})" if rendered else ""))
     return {
         "ok": True,

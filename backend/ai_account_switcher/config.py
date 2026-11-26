@@ -42,6 +42,7 @@ class Settings:
     desktop_command: str = ""
     terminal: str = ""
     show_usage_in_panel: bool = True
+    show_reset_in_panel: bool = True
     refresh_minutes: int = 5
 
 
@@ -84,6 +85,7 @@ SETTABLE = {
     "desktop_command": str,
     "terminal": str,
     "show_usage_in_panel": _parse_bool,
+    "show_reset_in_panel": _parse_bool,
     "refresh_minutes": _parse_minutes,
 }
 
