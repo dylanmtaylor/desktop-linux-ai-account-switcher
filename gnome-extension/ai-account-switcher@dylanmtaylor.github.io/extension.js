@@ -20,6 +20,13 @@ import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 Gio._promisify(Gio.Subprocess.prototype, 'communicate_utf8_async');
 
 const BACKEND = 'ai-account-switcher';
+// Lets the app launcher (`ai-account-switcher open`) pop this menu open.
+const BUS_PATH = '/io/github/dylanmtaylor/AiAccountSwitcher';
+const BUS_IFACE = `<node>
+  <interface name="io.github.dylanmtaylor.AiAccountSwitcher">
+    <method name="Open"/>
+  </interface>
+</node>`;
 const BAR_WIDTH = 240;
 const DOT = PopupMenu.Ornament.DOT;
 const NO_DOT = PopupMenu.Ornament.NO_DOT;
@@ -79,6 +86,33 @@ class ConfirmDialog extends ModalDialog.ModalDialog {
                 default: true,
             },
         ]);
+    }
+});
+
+const NameDialog = GObject.registerClass(
+class NameDialog extends ModalDialog.ModalDialog {
+    _init(title, description, onAccept) {
+        super._init({styleClass: 'aias-dialog'});
+        this.contentLayout.add_child(new Dialog.MessageDialogContent({title, description}));
+        this._entry = new St.Entry({
+            style_class: 'aias-dialog-entry',
+            hint_text: 'e.g. work or you@example.com',
+            can_focus: true,
+        });
+        this.contentLayout.add_child(this._entry);
+        const accept = () => {
+            const name = this._entry.get_text().trim();
+            if (!name)
+                return;
+            this.close();
+            onAccept(name);
+        };
+        this._entry.clutter_text.connect('activate', accept);
+        this.setButtons([
+            {label: 'Cancel', action: () => this.close(), key: Clutter.KEY_Escape},
+            {label: 'Create', action: accept, default: true},
+        ]);
+        this.setInitialKeyFocus(this._entry);
     }
 });
 
@@ -197,7 +231,18 @@ class Indicator extends PanelMenu.Button {
         this._call(['--notify', ...args]).then(() => this._pollWhilePending());
     }
 
-    _add(providerId) {
+    _add(provider) {
+        if (provider.add_needs_name) {
+            this.menu.close();
+            new NameDialog(
+                `New ${provider.label} profile`,
+                `${provider.label} opens on a fresh profile so you can sign in. ` +
+                'Name it after the account, e.g. its email.',
+                name => this._action(['add', provider.id, '--name', name])
+            ).open();
+            return;
+        }
+        const providerId = provider.id;
         this.menu.close();
         // Logins run in a terminal and may take minutes; show "waiting" meanwhile.
         this._call(['--notify', 'add', providerId]).then(() => this._pollWhilePending());
@@ -226,6 +271,7 @@ class Indicator extends PanelMenu.Button {
         this.menu.close();
         new ConfirmDialog(
             `Remove ${account.email}?`,
+            provider.remove_hint ??
             `The saved ${provider.label} login for this account is deleted from this computer. ` +
             'Your account itself is not affected, and you can add it again any time.',
             'Remove',
@@ -316,11 +362,13 @@ class Indicator extends PanelMenu.Button {
             );
             this.menu.addMenuItem(waiting);
         } else if (provider.cli_found) {
+            const noun = provider.add_needs_name ? 'profile' : 'account';
             const add = new PopupMenu.PopupImageMenuItem(
-                provider.accounts.length ? `Add ${provider.label} account…` : `Sign in to ${provider.label}…`,
+                provider.accounts.length || provider.add_needs_name
+                    ? `Add ${provider.label} ${noun}…` : `Sign in to ${provider.label}…`,
                 'list-add-symbolic'
             );
-            add.connect('activate', () => this._add(provider.id));
+            add.connect('activate', () => this._add(provider));
             this.menu.addMenuItem(add);
         }
     }
@@ -340,7 +388,9 @@ class Indicator extends PanelMenu.Button {
             }));
         }
         const manageable = provider.manageable !== false;
-        if (manageable && !account.active) {
+        const removable = account.removable ?? !account.active;
+        const clickable = manageable && (!account.active || account.launchable === true);
+        if (manageable && removable) {
             const remove = new St.Button({
                 style_class: 'aias-remove-button',
                 child: new St.Icon({icon_name: 'user-trash-symbolic', icon_size: 14}),
@@ -351,7 +401,7 @@ class Indicator extends PanelMenu.Button {
             item.add_child(remove);
         }
         item.connect('activate', () => {
-            if (manageable && !account.active)
+            if (clickable)
                 this._action(['switch', provider.id, account.id]);
         });
         this.menu.addMenuItem(item);
@@ -401,9 +451,15 @@ export default class AiAccountSwitcherExtension extends Extension {
     enable() {
         this._indicator = new Indicator(this);
         Main.panel.addToStatusArea(this.uuid, this._indicator);
+        this._dbus = Gio.DBusExportedObject.wrapJSObject(BUS_IFACE, {
+            Open: () => this._indicator?.menu.open(),
+        });
+        this._dbus.export(Gio.DBus.session, BUS_PATH);
     }
 
     disable() {
+        this._dbus?.unexport();
+        this._dbus = null;
         this._indicator?.destroy();
         this._indicator = null;
     }
