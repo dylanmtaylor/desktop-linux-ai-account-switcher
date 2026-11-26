@@ -1,0 +1,20 @@
+{
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "Dylan M. Taylor"
+            }
+        ],
+        "Category": "System Information",
+        "Description": "Switch Claude Code and Codex CLI accounts and see each account's usage and reset times",
+        "EnabledByDefault": true,
+        "Icon": "system-switch-user",
+        "Id": "io.github.dylanmtaylor.aiaccountswitcher",
+        "License": "MIT",
+        "Name": "AI Account Switcher",
+        "Version": "0.1.0",
+        "Website": "https://github.com/dylanmtaylor/desktop-linux-ai-account-switcher"
+    },
+    "KPackageStructure": "Plasma/Applet",
+    "X-Plasma-API-Minimum-Version": "6.0"
+}

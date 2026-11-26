@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+  <!-- Original artwork for AI Account Switcher (MIT). A person with two swap arrows. -->
+  <g fill="#2e3436">
+    <circle cx="8" cy="5.2" r="2.4"/>
+    <path d="M3.8 12.6c0-2.3 1.9-3.9 4.2-3.9s4.2 1.6 4.2 3.9v.4H3.8z"/>
+    <path d="M1 4.5 3.3 2v1.6h2.2v1.8H3.3V7z"/>
+    <path d="M15 11.5 12.7 14v-1.6h-2.2v-1.8h2.2V9z"/>
+  </g>
+</svg>
