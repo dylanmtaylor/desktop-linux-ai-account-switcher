@@ -24,9 +24,13 @@ PlasmoidItem {
     property var callbacks: ({})
 
     readonly property string panelText: status && status.panel ? status.panel.text : ""
+    // The system tray draws its own heading and wants icon-only entries.
+    readonly property bool inTray: (Plasmoid.containmentDisplayHints & PlasmaCore.Types.ContainmentDrawsPlasmoidHeading)
     readonly property bool anyPending: status ? status.providers.some(p => p.pending) : false
 
     toolTipMainText: "AI Account Switcher"
+    Plasmoid.status: status && status.providers.some(p => p.active) ? PlasmaCore.Types.ActiveStatus
+                                                                     : PlasmaCore.Types.PassiveStatus
     toolTipSubText: errorText !== "" ? errorText : (status ? status.panel.tooltip : "Loading…")
 
     // ------------------------------------------------------------------ backend
@@ -82,7 +86,11 @@ PlasmoidItem {
         call(["--notify"].concat(args));
     }
 
-    function addAccount(providerId) {
+    function addAccount(providerId, name) {
+        if (name) {
+            call(["--notify", "add", providerId, "--name", name]);
+            return;
+        }
         call(["--notify", "add", providerId]);
         statusKick.restart();   // show "waiting for sign-in" quickly
     }
@@ -146,7 +154,7 @@ PlasmoidItem {
         onClicked: root.expanded = !root.expanded
 
         readonly property bool horizontal: Plasmoid.formFactor === PlasmaCore.Types.Horizontal
-        Layout.minimumWidth: horizontal ? row.implicitWidth : Kirigami.Units.iconSizes.small
+        Layout.minimumWidth: horizontal && !root.inTray ? row.implicitWidth : Kirigami.Units.iconSizes.small
         Layout.preferredWidth: Layout.minimumWidth
 
         RowLayout {
@@ -164,7 +172,7 @@ PlasmoidItem {
                 active: compact.containsMouse
             }
             PlasmaComponents.Label {
-                visible: compact.horizontal && text !== ""
+                visible: compact.horizontal && !root.inTray && text !== ""
                 text: root.panelText
             }
         }
@@ -179,6 +187,7 @@ PlasmoidItem {
         collapseMarginsHint: true
 
         header: PlasmaExtras.PlasmoidHeading {
+            visible: !root.inTray
             RowLayout {
                 anchors.fill: parent
                 Kirigami.Heading {
@@ -209,8 +218,8 @@ PlasmoidItem {
                         Layout.fillWidth: true
                         wrapMode: Text.Wrap
                         text: root.pendingRemoval
-                            ? "Remove " + root.pendingRemoval.account.email + " from this computer? "
-                              + "The account itself is not affected."
+                            ? "Remove " + root.pendingRemoval.account.email + "? "
+                              + (root.pendingRemoval.provider.remove_hint || "Its saved login is deleted from this computer; the account itself is not affected.")
                             : ""
                     }
                     PlasmaComponents.Button {
@@ -294,6 +303,7 @@ PlasmoidItem {
         RowLayout {
             Layout.fillWidth: true
             Layout.leftMargin: Kirigami.Units.smallSpacing
+            Layout.rightMargin: Kirigami.Units.smallSpacing
             Kirigami.Heading {
                 Layout.fillWidth: true
                 level: 4
@@ -344,10 +354,47 @@ PlasmoidItem {
         }
 
         PlasmaComponents.Button {
-            visible: provider.manageable !== false && provider.cli_found && !provider.pending
+            visible: provider.manageable !== false && provider.cli_found && !provider.pending && !nameRow.visible
             icon.name: "list-add"
-            text: provider.accounts.length ? "Add " + provider.label + " account…" : "Sign in to " + provider.label + "…"
-            onClicked: root.addAccount(provider.id)
+            text: provider.add_needs_name ? "Add " + provider.label + " profile…"
+                : provider.accounts.length ? "Add " + provider.label + " account…" : "Sign in to " + provider.label + "…"
+            onClicked: {
+                if (provider.add_needs_name) {
+                    nameRow.visible = true;
+                    nameField.forceActiveFocus();
+                } else {
+                    root.addAccount(provider.id);
+                }
+            }
+        }
+
+        RowLayout {
+            id: nameRow
+            visible: false
+            Layout.fillWidth: true
+            PlasmaComponents.TextField {
+                id: nameField
+                Layout.fillWidth: true
+                placeholderText: "Profile name, e.g. work or you@example.com"
+                onAccepted: createButton.clicked()
+                Keys.onEscapePressed: { nameRow.visible = false; text = ""; }
+            }
+            PlasmaComponents.Button {
+                id: createButton
+                text: "Create"
+                enabled: nameField.text.trim() !== ""
+                onClicked: {
+                    root.addAccount(section.provider.id, nameField.text.trim());
+                    nameField.text = "";
+                    nameRow.visible = false;
+                }
+            }
+            PlasmaComponents.ToolButton {
+                icon.name: "dialog-cancel"
+                display: PlasmaComponents.AbstractButton.IconOnly
+                text: "Cancel"
+                onClicked: { nameRow.visible = false; nameField.text = ""; }
+            }
         }
     }
 
@@ -356,13 +403,16 @@ PlasmoidItem {
         property var provider
         property var account
         readonly property bool manageable: provider && provider.manageable !== false
+        readonly property bool clickable: manageable && (!account.active || account.launchable === true)
+        readonly property bool removable: manageable && (account.removable !== undefined ? account.removable : !account.active)
         highlighted: account.active
         hoverEnabled: true
         onClicked: {
-            if (manageable && !account.active)
+            if (clickable)
                 root.action(["switch", provider.id, account.id]);
         }
         PlasmaComponents.ToolTip.text: !manageable ? "Signed in with agy (status only)"
+            : account.launchable === true ? "Click to open Claude Desktop with this profile"
             : account.active ? "Active account" : "Click to switch to this account"
         PlasmaComponents.ToolTip.visible: hovered
         PlasmaComponents.ToolTip.delay: Kirigami.Units.toolTipDelay
@@ -430,7 +480,7 @@ PlasmoidItem {
 
             PlasmaComponents.ToolButton {
                 Layout.alignment: Qt.AlignTop
-                visible: rowItem.manageable && !account.active
+                visible: rowItem.removable
                 icon.name: "edit-delete-remove"
                 display: PlasmaComponents.AbstractButton.IconOnly
                 text: "Remove " + account.email

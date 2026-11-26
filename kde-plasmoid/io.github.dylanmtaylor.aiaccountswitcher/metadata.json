@@ -16,5 +16,7 @@
         "Website": "https://github.com/dylanmtaylor/desktop-linux-ai-account-switcher"
     },
     "KPackageStructure": "Plasma/Applet",
+    "X-Plasma-NotificationArea": "true",
+    "X-Plasma-NotificationAreaCategory": "ApplicationStatus",
     "X-Plasma-API-Minimum-Version": "6.0"
 }
