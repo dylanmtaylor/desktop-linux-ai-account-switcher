@@ -46,6 +46,17 @@ EOF
 chmod 755 "$BIN/ai-account-switcher"
 echo "Installed backend: $BIN/ai-account-switcher"
 
+# ---- app launcher + icons
+install -Dm644 "$HERE/data/ai-account-switcher.svg" "$DATA/icons/hicolor/scalable/apps/ai-account-switcher.svg"
+install -Dm644 "$HERE/gnome-extension/$UUID/icons/ai-account-switcher-symbolic.svg" \
+  "$DATA/icons/hicolor/symbolic/apps/ai-account-switcher-symbolic.svg"
+mkdir -p "$DATA/applications"
+sed "s#@BIN@#$BIN#g" "$HERE/data/io.github.dylanmtaylor.AiAccountSwitcher.desktop.in" \
+  > "$DATA/applications/io.github.dylanmtaylor.AiAccountSwitcher.desktop"
+command -v update-desktop-database >/dev/null && update-desktop-database -q "$DATA/applications" 2>/dev/null || true
+command -v gtk-update-icon-cache >/dev/null && gtk-update-icon-cache -q -t "$DATA/icons/hicolor" 2>/dev/null || true
+echo "Added \"AI Account Switcher\" to the application menu."
+
 # ---- GNOME Shell extension
 if [ "$want_gnome" = 1 ]; then
   dest="$DATA/gnome-shell/extensions/$UUID"

@@ -15,7 +15,7 @@ dbus-run-session -- bash -c '
   sleep 6
   python3 /src/tests/gnome/seed.py >/dev/null 2>&1
   gdbus call --session --dest org.gnome.Shell --object-path /org/gnome/Shell --method org.gnome.Shell.Eval "Main.extensionManager.lookup(\"ai-account-switcher@dylanmtaylor.github.io\")?.state + \" \" + (Main.extensionManager.lookup(\"ai-account-switcher@dylanmtaylor.github.io\")?.error ?? \"\")" > /out/state.txt 2>&1
-  gdbus call --session --dest org.gnome.Shell --object-path /org/gnome/Shell --method org.gnome.Shell.Eval "Main.panel.statusArea[\"ai-account-switcher@dylanmtaylor.github.io\"].menu.open(); \"opened\"" >> /out/state.txt 2>&1
+  PATH=$HOME/.local/bin:$PATH ai-account-switcher --json open | python3 -c "import json,sys; print(\"open via launcher:\", json.load(sys.stdin)[\"opened\"])" >> /out/state.txt 2>&1
   sleep 3
   gdbus call --session --dest org.gnome.Shell --object-path /org/gnome/Shell --method org.gnome.Shell.Eval "const m = Main.panel.statusArea[\"ai-account-switcher@dylanmtaylor.github.io\"].menu; const items = m._getMenuItems().filter(i => i._ornamentIcon); JSON.stringify(items.map(i => [i._ornament, i._ornamentIcon.icon_name, i._ornamentIcon.visible, i._ornamentIcon.width, i._ornamentIcon.mapped]))" >> /out/state.txt 2>&1
   gdbus call --session --dest org.gnome.Shell --object-path /org/gnome/Shell/Screenshot --method org.gnome.Shell.Screenshot.Screenshot false false /out/menu.png >> /out/state.txt 2>&1

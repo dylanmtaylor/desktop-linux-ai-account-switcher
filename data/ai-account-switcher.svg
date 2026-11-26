@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- Original artwork for AI Account Switcher (MIT OR Apache-2.0). -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#d97757"/>
+      <stop offset="1" stop-color="#7c5cd6"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="112" height="112" rx="26" fill="url(#bg)"/>
+  <g fill="#fff">
+    <circle cx="64" cy="50" r="15"/>
+    <path d="M38 96c0-15 11.6-25 26-25s26 10 26 25v3H38z"/>
+    <path d="M20 40 34 25v9h14v12H34v9z"/>
+    <path d="M108 88 94 103v-9H80V82h14v-9z"/>
+  </g>
+</svg>

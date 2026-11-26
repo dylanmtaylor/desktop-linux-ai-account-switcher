@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=AI Account Switcher
+GenericName=AI Account Switcher
+Comment=Switch Claude Code, Codex and Claude Desktop accounts and see their usage
+Exec=@BIN@/ai-account-switcher open
+Icon=ai-account-switcher
+Terminal=false
+Categories=Utility;
+Keywords=claude;codex;gemini;account;switch;usage;quota;ai;
+StartupNotify=false

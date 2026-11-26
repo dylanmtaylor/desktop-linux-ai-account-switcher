@@ -9,7 +9,10 @@ PLASMOID="io.github.dylanmtaylor.aiaccountswitcher"
 command -v gnome-extensions >/dev/null && gnome-extensions disable "$UUID" 2>/dev/null || true
 rm -rf "$DATA/gnome-shell/extensions/$UUID"
 command -v kpackagetool6 >/dev/null && kpackagetool6 -t Plasma/Applet -r "$PLASMOID" >/dev/null 2>&1 || true
-rm -f "$HOME/.local/bin/ai-account-switcher"
+rm -f "$HOME/.local/bin/ai-account-switcher" \
+      "$DATA/applications/io.github.dylanmtaylor.AiAccountSwitcher.desktop" \
+      "$DATA/icons/hicolor/scalable/apps/ai-account-switcher.svg" \
+      "$DATA/icons/hicolor/symbolic/apps/ai-account-switcher-symbolic.svg"
 rm -rf "$DATA/ai-account-switcher/backend"
 echo "Removed the panel apps and the backend."
 

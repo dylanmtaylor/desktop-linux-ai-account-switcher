@@ -1,11 +1,11 @@
 # Desktop Linux AI Account Switcher
 
-Switch between multiple **Claude Code** and **Codex CLI** accounts from your Linux desktop panel, and see each account's email, usage, and when its limits reset. If you use **Antigravity (`agy`)**, your Gemini subscription usage shows up too.
+Switch between multiple **Claude Code** and **Codex CLI** accounts, and between **Claude Desktop** profiles, from your Linux desktop panel. See each account's email, usage, and when its limits reset. If you use **Antigravity (`agy`)**, your Gemini subscription usage shows up too.
 
 It ships as:
 
 - a **GNOME Shell extension** (GNOME 50 and later)
-- a **KDE Plasma 6 panel widget**
+- a **KDE Plasma 6 widget**, for the panel or the system tray
 - an **`ai-account-switcher` CLI**, which both panel apps use and which also works on its own
 
 ## Features
@@ -14,6 +14,8 @@ It ships as:
 - **Usage at a glance:** 5-hour and weekly usage for every saved account, with a progress bar and a countdown to the next reset ("resets in 2h 10m (Tue 14:00)"). The panel shows the active accounts' usage, e.g. `Claude 42% · Codex 12% · Gemini 33%`.
 - **Easy add and remove:** *Add account…* opens a terminal running the CLI's own login (`claude auth login` / `codex login`) and saves the new account when sign-in finishes. If you cancel, your previous account is restored. Each inactive account has a remove button, and removal asks for confirmation.
 - **Auto-switch (optional, per provider):** when the active account hits its limit, it moves to the least-used saved account that still has room.
+- **Claude Desktop profiles:** each profile is its own Claude Desktop data folder. Switching quits Claude Desktop and reopens it on the other profile, so each profile stays signed in. Uses the same `~/.config/Claude-accounts/` layout as [claude-desktop-switcher](https://github.com/Adam-Zaghloul/claude-desktop-switcher), so profiles you already made there appear here. Removing a profile moves its folder to the Trash.
+- **App launcher:** *AI Account Switcher* in your application menu opens the top-bar menu on GNOME, or the widget in a window on KDE.
 - **Gemini via Antigravity (read-only):** shows the Google account signed in to `agy` and its Gemini and Claude/GPT quota buckets, read from `agy`'s local `/usage` command.
 - **Saved logins live in your keyring** (GNOME Keyring or KWallet, through the Secret Service), not in plain config files.
 
@@ -29,7 +31,7 @@ cd desktop-linux-ai-account-switcher
 ```
 
 - **GNOME:** on Wayland, log out and back in once, then check that the extension is enabled (`gnome-extensions enable ai-account-switcher@dylanmtaylor.github.io`).
-- **KDE Plasma:** right-click the panel → *Add or Manage Widgets* → **AI Account Switcher**.
+- **KDE Plasma:** right-click the panel → *Add or Manage Widgets* → **AI Account Switcher**, or put it in the system tray instead: *System Tray Settings → Entries → AI Account Switcher → Always shown*.
 
 To uninstall, run `./uninstall.sh`. Add `--purge` to also delete saved logins and settings.
 
@@ -41,13 +43,16 @@ ai-account-switcher refresh                      # save current logins, fetch us
 ai-account-switcher add claude                   # sign in to another account in a terminal
 ai-account-switcher switch claude you@work.com
 ai-account-switcher remove codex old@example.com
+ai-account-switcher add desktop --name work      # new Claude Desktop profile
+ai-account-switcher switch desktop default
+ai-account-switcher open                         # what the app launcher runs
 ai-account-switcher auto-switch claude on
 ai-account-switcher set show_usage_in_panel off
 ```
 
 Add `--json` for machine-readable output and `--notify` for desktop notifications.
 
-Other settings: `auto_switch_threshold` (1–100), `refresh_minutes`, `terminal` (e.g. `"konsole -e"`), `claude_config_dir`, `claude_command`, `codex_command`, and `secret_backend` (`secret-service` or `file`).
+Other settings: `auto_switch_threshold` (1–100), `refresh_minutes`, `terminal` (e.g. `"konsole -e"`), `claude_config_dir`, `claude_command`, `codex_command`, `desktop_command` (defaults to `claude-desktop`; may include arguments, e.g. `flatpak run <app-id>`), and `secret_backend` (`secret-service` or `file`).
 
 ## How it works
 
@@ -55,6 +60,7 @@ Other settings: `auto_switch_threshold` (1–100), `refresh_minutes`, `terminal`
 |---|---|---|
 | Claude Code | `~/.claude/.credentials.json` + `oauthAccount` in `~/.claude.json` (or inside `$CLAUDE_CONFIG_DIR`) | Secret Service item `application=ai-account-switcher provider=claude account=<email>` |
 | Codex | `~/.codex/auth.json` (or `$CODEX_HOME`) | `… provider=codex …` |
+| Claude Desktop | the Electron data folder: `~/.config/Claude` ("default") or `~/.config/Claude-accounts/<name>` via `--user-data-dir` | the folders themselves (the session is encrypted to its folder, so it is never copied) |
 | Gemini (agy) | `agy`'s own keyring entry, read only for the email | not saved, status only |
 
 - **Switching:** the switcher first re-saves the current login, so tokens the CLI has refreshed since are never lost. It then writes the target account's saved login back, atomically and with `0600` permissions. Other keys in `~/.claude.json` are left untouched.
