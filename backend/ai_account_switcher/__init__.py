@@ -1,4 +1,5 @@
 """AI Account Switcher: switch Claude Code and Codex CLI accounts on Linux."""
+# SPDX-License-Identifier: MIT OR Apache-2.0
 
 __version__ = "0.1.0"
 APP_ID = "ai-account-switcher"

@@ -2,7 +2,7 @@
 // The account logic lives in the `ai-account-switcher` backend; this file only draws
 // its JSON and calls it asynchronously, so the shell never blocks on disk, keyring
 // or network.
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 import Clutter from 'gi://Clutter';
 import GLib from 'gi://GLib';

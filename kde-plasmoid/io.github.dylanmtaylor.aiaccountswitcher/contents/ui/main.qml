@@ -1,7 +1,7 @@
 // AI Account Switcher: Plasma 6 panel widget for Claude Code and Codex accounts.
 // All account logic lives in the `ai-account-switcher` backend; this widget only
 // draws its JSON and runs it asynchronously.
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 import QtQuick
 import QtQuick.Layouts

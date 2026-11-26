@@ -10,7 +10,7 @@
         "EnabledByDefault": true,
         "Icon": "system-switch-user",
         "Id": "io.github.dylanmtaylor.aiaccountswitcher",
-        "License": "MIT",
+        "License": "MIT OR Apache-2.0",
         "Name": "AI Account Switcher",
         "Version": "0.1.0",
         "Website": "https://github.com/dylanmtaylor/desktop-linux-ai-account-switcher"
