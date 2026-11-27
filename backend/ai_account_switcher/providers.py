@@ -234,7 +234,13 @@ class Provider:
 # =============================================================================== Claude
 
 
+CLAUDE_CLIENT_ID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e"
+CLAUDE_TOKEN_URL = "https://console.anthropic.com/v1/oauth/token"
 CLAUDE_USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
+
+
+class ClaudeExpired(SwitcherError):
+    pass
 
 
 class ClaudeCode(Provider):
@@ -313,29 +319,76 @@ class ClaudeCode(Provider):
     def login_argv(self, cli: str) -> list[str]:
         return [cli, "auth", "login"]
 
+    @staticmethod
+    def _token_expired(oauth: dict) -> bool:
+        expires = oauth.get("expiresAt")
+        return isinstance(expires, (int, float)) and expires / 1000 < time.time() + 60
+
+    def refresh(self, snapshot: str) -> str | None:
+        """Exchange the refresh token. Raises ClaudeExpired if it was revoked or already used."""
+        data = loads_dict(snapshot) or {}
+        creds = loads_dict(data.get("credentials")) if isinstance(data.get("credentials"), str) else None
+        oauth = creds.get("claudeAiOauth") if creds else None
+        if not isinstance(oauth, dict) or not oauth.get("refreshToken"):
+            return None
+        body = json.dumps({
+            "grant_type": "refresh_token",
+            "refresh_token": oauth["refreshToken"],
+            "client_id": CLAUDE_CLIENT_ID,
+        }).encode()
+        status, reply, text = usage.http_json(
+            CLAUDE_TOKEN_URL, {"Content-Type": "application/json"}, 15, body
+        )
+        if status in (400, 401) and any(s in text.lower() for s in ("invalid_grant", "invalid_token",
+                                                                     "revoked", "expired")):
+            raise ClaudeExpired("This saved Claude Code login has expired. Add the account again.")
+        if status != 200 or not reply or not isinstance(reply.get("access_token"), str) or not reply["access_token"]:
+            return None
+        oauth["accessToken"] = reply["access_token"]
+        if isinstance(reply.get("refresh_token"), str) and reply["refresh_token"]:
+            oauth["refreshToken"] = reply["refresh_token"]
+        if isinstance(reply.get("expires_in"), (int, float)):
+            oauth["expiresAt"] = int((time.time() + reply["expires_in"]) * 1000)
+        creds["claudeAiOauth"] = oauth  # type: ignore[index]
+        data["credentials"] = json.dumps(creds, separators=(",", ":"))
+        return json.dumps(data, separators=(",", ":"), sort_keys=True)
+
     def fetch_usage(self, snapshot: str, active: bool) -> tuple[dict, str | None]:
+        refreshed = None
         data = loads_dict(snapshot) or {}
         creds = loads_dict(data.get("credentials")) if isinstance(data.get("credentials"), str) else None
         oauth = creds.get("claudeAiOauth") if creds else None
         token = oauth.get("accessToken") if isinstance(oauth, dict) else None
         if not token:
             return usage.error("No access token saved", "login_required"), None
-        expires = oauth.get("expiresAt")  # type: ignore[union-attr]
-        if isinstance(expires, (int, float)) and expires / 1000 < time.time():
+        if self._token_expired(oauth):  # type: ignore[arg-type]
             if active:
+                # Never refresh the live login: a running claude process holds the same
+                # refresh token, and rotating it underneath would sign that process out.
                 return usage.error("Token expired; Claude Code refreshes it on next use", "expired"), None
-            return usage.error("Idle; usage shows again once this account is active", "expired"), None
+            try:
+                refreshed = self.refresh(snapshot)
+            except ClaudeExpired:
+                return usage.error("Login expired; add the account again", "login_required"), None
+            if not refreshed:
+                return usage.error("Could not refresh the saved login", "network"), None
+            data = loads_dict(refreshed) or {}
+            creds = loads_dict(data.get("credentials")) if isinstance(data.get("credentials"), str) else None
+            oauth = creds.get("claudeAiOauth") if creds else None
+            token = oauth.get("accessToken") if isinstance(oauth, dict) else None
+            if not token:
+                return usage.error("No access token saved", "login_required"), refreshed
         status, body, _ = usage.http_json(
             CLAUDE_USAGE_URL,
             {"Authorization": f"Bearer {token}", "anthropic-beta": "oauth-2025-04-20"},
         )
         if status is None:
-            return usage.error("Offline or the usage service is unreachable", "network"), None
+            return usage.error("Offline or the usage service is unreachable", "network"), refreshed
         if status in (401, 403):
-            return usage.error("Session expired; switch to it or add it again", "login_required"), None
+            return usage.error("Session expired; switch to it or add it again", "login_required"), refreshed
         if status != 200 or body is None:
-            return usage.error(f"Usage service returned HTTP {status}", "http"), None
-        return parse_claude_usage(body), None
+            return usage.error(f"Usage service returned HTTP {status}", "http"), refreshed
+        return parse_claude_usage(body), refreshed
 
 
 def parse_claude_usage(body: dict) -> dict:

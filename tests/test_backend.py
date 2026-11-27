@@ -160,13 +160,29 @@ class ClaudeTests(Sandbox):
         self.assertEqual(sorted(a.id for a in Config().for_provider("claude")), ["a@example.com", "n@example.com"])
         self.assertIsNotNone(FileStore().get("claude", "a@example.com"))
 
-    def test_expired_inactive_token_reports_idle_without_network(self):
+    def test_expired_inactive_token_refreshes_and_fetches_usage(self):
         self.claude_login("a@example.com", "uuid-a", expires_in=-10)
         snap = ClaudeCode(Config()).read_live().snapshot
-        state, _ = ClaudeCode(Config()).fetch_usage(snap, active=False)
-        self.assertFalse(state["available"])
+        self.http.side_effect = [
+            (200, {"access_token": "fresh-tok", "refresh_token": "fresh-ref", "expires_in": 3600}, "{}"),
+            (200, {"seven_day": {"utilization": 12.0, "resets_at": "2030-12-01T10:59:59+00:00"}}, "{}"),
+        ]
+        state, refreshed = ClaudeCode(Config()).fetch_usage(snap, active=False)
+        self.assertTrue(state["available"])
+        self.assertIsNotNone(refreshed)
+        creds = json.loads(json.loads(refreshed)["credentials"])
+        self.assertEqual(creds["claudeAiOauth"]["accessToken"], "fresh-tok")
+        self.assertEqual(creds["claudeAiOauth"]["refreshToken"], "fresh-ref")
+        self.assertEqual(self.http.call_count, 2)
+
+    def test_active_expired_token_is_never_refreshed(self):
+        self.claude_login("a@example.com", "uuid-a", expires_in=-10)
+        snap = ClaudeCode(Config()).read_live().snapshot
+        with mock.patch.object(ClaudeCode, "refresh") as refresh:
+            state, refreshed = ClaudeCode(Config()).fetch_usage(snap, active=True)
+        refresh.assert_not_called()
+        self.assertIsNone(refreshed)
         self.assertEqual(state["code"], "expired")
-        self.http.assert_not_called()
 
     def test_corrupt_state_file_is_never_clobbered(self):
         self.claude_login("a@example.com", "uuid-a")
