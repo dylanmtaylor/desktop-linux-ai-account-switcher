@@ -27,7 +27,6 @@ const BUS_IFACE = `<node>
     <method name="Open"/>
   </interface>
 </node>`;
-const BAR_WIDTH = 240;
 const DOT = PopupMenu.Ornament.DOT;
 const NO_DOT = PopupMenu.Ornament.NO_DOT;
 
@@ -117,16 +116,18 @@ class NameDialog extends ModalDialog.ModalDialog {
 });
 
 function usageBar(percent) {
-    const trough = new St.Widget({style_class: 'aias-bar-trough', width: BAR_WIDTH});
-    const fill = new St.Widget({
-        style_class: 'aias-bar-fill',
-        width: Math.max(2, Math.round((BAR_WIDTH * Math.min(percent, 100)) / 100)),
-    });
+    const fraction = Math.max(0, Math.min(percent, 100)) / 100;
+    const trough = new St.Widget({style_class: 'aias-bar-trough', x_expand: true});
+    const fill = new St.Widget({style_class: 'aias-bar-fill'});
     if (percent >= 90)
         fill.add_style_class_name('critical');
     else if (percent >= 70)
         fill.add_style_class_name('warning');
     trough.add_child(fill);
+    trough.connect('notify::allocation', () => {
+        const total = trough.allocation.get_width();
+        fill.width = fraction >= 1 ? total : Math.max(2, Math.round(total * fraction));
+    });
     return trough;
 }
 
